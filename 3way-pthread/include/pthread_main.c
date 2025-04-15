@@ -1,148 +1,175 @@
-#include <pthread.h>
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <string.h>
-#include <stdint.h>
 
-#define NUM_THREADS 4
+#define NUM_THREADS 4 // Number of threads to use
+#define INITIAL_SIZE 1000000 // Initial allocation size for lines
+#define MAX_LINES_IN_BATCH 300000
 
-#define ARRAY_SIZE 2000000
-#define STRING_SIZE 16
-#define ALPHABET_SIZE 26
+// Global arrays and variables
+char **char_array; // Array of strings (lines from the file)
+int *max_values; // Array to store max ASCII values per line
+long total_lines = 0; // Total number of lines read from the file
+long lines_in_batch;
 
-pthread_mutex_t mutexsum;			// mutex for char_counts
-
-char char_array[ARRAY_SIZE][STRING_SIZE];
-int char_counts[ALPHABET_SIZE];			// count of individual characters
-
-char getRandomChar()
+// THREAD WORKER FUNCTION
+// Each thread executes this function. It processes a chunk of the lines
+// and computes the maximum ASCII value per line.
+void *thread_worker(void *arg) 
 {
-	int randNum = 0;
-	char randChar = ' ';
+    long thread_id = (long)arg;
 
-	randNum = ALPHABET_SIZE * (rand() / (RAND_MAX + 1.0)); 	// pick number 0 < # < 25
-	randNum = randNum + 97;				// scale to 'a'
-	randChar = (char) randNum;
+    // Divide the work among threads evenly
+    //long lines_per_thread = total_lines / NUM_THREADS;
+    long lines_per_thread = lines_in_batch / NUM_THREADS;
+    long start = thread_id * lines_per_thread;
+    long end = (thread_id == NUM_THREADS - 1) ? lines_in_batch : start + lines_per_thread;
 
-	// printf("%c", randChar);
-	return randChar;
+    // Process each line assigned to this thread
+    for (long i = start; i < end; i++) 
+    {
+        int max = 0;
+
+        // Go through each character in the line to find the max ASCII value
+        for (char *p = char_array[i]; *p != '\0'; p++) 
+        {
+            if ((int)(*p) > max) 
+            {
+                max = (int)(*p);
+            }
+        }
+
+        // Store the max value for this line
+        max_values[i] = max;
+    }
+
+    // Exit thread
+    pthread_exit(NULL);
 }
 
-void init_arrays()
+// PRINT RESULTS (and free memory)
+// Output format: line_number: max_ascii_value
+void print_results(long offset) 
 {
-  int i, j; 
-
-  pthread_mutex_init(&mutexsum, NULL);
-
-  for ( i = 0; i < ARRAY_SIZE; i++) {
-	for ( j = 0; j < STRING_SIZE; j++ ) {
-		 char_array[i][j] = getRandomChar();
-	}
-  }
-
-  for ( i = 0; i < ALPHABET_SIZE; i++ ) {
-  	char_counts[i] = 0;
-  }
+    for (long i = 0; i < lines_in_batch; i++) 
+    {
+        printf("%ld: %d\n", i+offset, max_values[i]);
+        free(char_array[i]);
+    }
+    free(char_array);
+    free(max_values);
 }
 
-void *count_array(void *myID)
+// Process the data in batches
+// Gives the program the ability read in file even when the program has only 1GB of memory available
+void proccess_batch(long offset)
 {
-  char theChar;
-  int i, j, charLoc;
-  int local_char_count[ALPHABET_SIZE];
+    pthread_t threads[NUM_THREADS];
 
+    for(long i = 0; i < NUM_THREADS; i++)
+    {
+         if (pthread_create(&threads[i], NULL, thread_worker, (void *)i) != 0) 
+        {
+            perror("Error creating thread");
+            exit(1);
+        }
+    }
+    for(long i = 0; i < NUM_THREADS; i++)
+    {
+        // Wait for all threads to join
+        pthread_join(threads[i], NULL);
+    }
 
-
-  //int startPos = ((int) myID) * (ARRAY_SIZE / NUM_THREADS);
-  intptr_t id = (intptr_t) myID;
-  int startPos = id * (ARRAY_SIZE / NUM_THREADS);
-  int endPos = startPos + (ARRAY_SIZE / NUM_THREADS);
-
-  //printf("myID = %d startPos = %d endPos = %d \n", (int) myID, startPos, endPos);
-	printf("myID = %ld startPos = %d endPos = %d \n", id, startPos, endPos);
-
-					// init local count array
-  for ( i = 0; i < ALPHABET_SIZE; i++ ) {
-  	local_char_count[i] = 0;
-  }
-					// count up our section of the global array
-  for ( i = startPos; i < endPos; i++) {
-	for ( j = 0; j < STRING_SIZE; j++ ) {
-	         theChar = char_array[i][j];
-		 charLoc = ((int) theChar) - 97;
-		 local_char_count[charLoc]++;
-	}
-  }
-					// sum up the partial counts into the global arrays
-  pthread_mutex_lock (&mutexsum);
-  for ( i = 0; i < ALPHABET_SIZE; i++ ) {
-     char_counts[i] += local_char_count[i];
-  }
-  pthread_mutex_unlock (&mutexsum);
-
-  pthread_exit(NULL);
+    print_results(offset);
 }
 
-void print_results()
+// INITIALIZE ARRAYS
+// Reads the file line-by-line into dynamically allocated char_array
+long init_arrays(FILE *fp) 
 {
-  //int i,j, total = 0;
-  int i, total = 0;
+    
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    size_t char_array_size = MAX_LINES_IN_BATCH;
 
-  					// then print out the totals
-  for ( i = 0; i < ALPHABET_SIZE; i++ ) {
-     total += char_counts[i];
-     printf(" %c %d\n", (char) (i + 97), char_counts[i]);
-  }
-  printf("\nTotal characters:  %d\n", total);
+    // Allocate initial space for char_array
+    char_array = malloc(char_array_size * sizeof(char *));
+    max_values = malloc(char_array_size * sizeof(int));
+
+    if (char_array == NULL || max_values == NULL) 
+    {
+        perror("Error allocating memory for char_array or max_values");
+        exit(1);
+    }
+
+    long lines_read = 0;
+   
+    // Read each line from the file
+    while (lines_read < MAX_LINES_IN_BATCH && (read = getline(&line, &len, fp)) != -1) 
+    {
+        // Resize char_array if necessary
+        if (lines_read >= (long)char_array_size) 
+        {
+            char_array_size *= 2;
+            char **temp = realloc(char_array, char_array_size * sizeof(char *));
+            int *temp_max = realloc(max_values, char_array_size * sizeof(int));
+            if (temp == NULL || temp_max == NULL) 
+            {
+                perror("Error reallocating memory");
+                exit(1);
+            }
+            char_array = temp;
+            max_values = temp_max;
+        }
+        // Allocate space for the line and copy it in
+        char_array[lines_read] = malloc(read + 1);
+        if (char_array[lines_read] == NULL) 
+        {
+            perror("Error allocating line memory");
+            exit(1);
+        }
+
+        snprintf(char_array[lines_read], read + 1, "%s", line);
+        lines_read++;
+    }
+   
+    // Clean up
+    free(line);
+    return lines_read;
 }
 
-int main(void) {
-	//int i, rc;
-	intptr_t i;
-	int rc;
-	pthread_t threads[NUM_THREADS];
-	pthread_attr_t attr;
-	void *status;
+// MAIN FUNCTION
+// Controls program flow: setup, thread management, output, cleanup
+int main() 
+{
+    FILE *fp;
+    char *file_path = "/homes/dan/625/wiki_dump.txt";
 
+    fp = fopen(file_path, "r");
+    if (fp == NULL)
+    {
+        perror("Error opening file");
+        exit(1);
+    }
+    
+   long offset = 0;
 
-	/* Initialize and set thread detached attribute */
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+   //while not end of file, process the wiki dump
+   while(1)
+   {
+        lines_in_batch = init_arrays(fp);
 
-	init_arrays();
+        //if 0 lines are in the batch, we are at the end of the file 
+        if(lines_in_batch == 0)
+            break;
+        proccess_batch(offset);
+        offset += lines_in_batch;
+   }
 
-	/*
-	for (i = 0; i < NUM_THREADS; i++ ) {
-	      rc = pthread_create(&threads[i], &attr, count_array, (void *)i);
-	      if (rc) {
-	        printf("ERROR; return code from pthread_create() is %d\n", rc);
-		exit(-1);
-	      }
-	}
-	*/
-	for (i = 0; i < NUM_THREADS; i++ ) {
-	      rc = pthread_create(&threads[i], &attr, count_array, (void *)i);
-	      if (rc) {
-	        printf("ERROR; return code from pthread_create() is %d\n", rc);
-		exit(-1);
-	      }
-	}
-	
-	/* Free attribute and wait for the other threads */
-	pthread_attr_destroy(&attr);
-	for(i=0; i<NUM_THREADS; i++) {
-	     rc = pthread_join(threads[i], &status);
-	     if (rc) {
-		   printf("ERROR; return code from pthread_join() is %d\n", rc);
-		   exit(-1);
-	     }
-	}
-
-	print_results();
-
-	pthread_mutex_destroy(&mutexsum);
-	printf("Main: program completed. Exiting.\n");
-	pthread_exit(NULL);
-	return 0;
+    fclose(fp);
+    return 0;
 }
 
