@@ -6,7 +6,9 @@
 
 #define NUM_THREADS 4 // Number of threads to use
 #define INITIAL_SIZE 1000000 // Initial allocation size for lines
-#define MAX_LINES_IN_BATCH 300000
+#define MAX_LINES_IN_BATCH 1000
+#define MEMORY_LIMIT 800 // Memory limit in MB
+#define BYTES_LIMIT (800 * 1024 * 1024) // max number of bytes we want to read in at a time
 
 // Global arrays and variables
 char **char_array; // Array of strings (lines from the file)
@@ -64,7 +66,7 @@ void print_results(long offset)
 
 // Process the data in batches
 // Gives the program the ability read in file even when the program has only 1GB of memory available
-void proccess_batch(long offset)
+void process_batch(long offset)
 {
     pthread_t threads[NUM_THREADS];
 
@@ -95,6 +97,10 @@ long init_arrays(FILE *fp)
     ssize_t read;
     size_t char_array_size = MAX_LINES_IN_BATCH;
 
+    long lines_read = 0;
+    //keep track of memory usage to reduce freezing
+    long memory_usage = 0;
+
     // Allocate initial space for char_array
     char_array = malloc(char_array_size * sizeof(char *));
     max_values = malloc(char_array_size * sizeof(int));
@@ -105,10 +111,12 @@ long init_arrays(FILE *fp)
         exit(1);
     }
 
-    long lines_read = 0;
+    //account for malloc
+    memory_usage += char_array_size * (sizeof(char*) + sizeof(int));
+    
    
     // Read each line from the file
-    while (lines_read < MAX_LINES_IN_BATCH && (read = getline(&line, &len, fp)) != -1) 
+    while ((read = getline(&line, &len, fp)) != -1) 
     {
         // Resize char_array if necessary
         if (lines_read >= (long)char_array_size) 
@@ -123,6 +131,7 @@ long init_arrays(FILE *fp)
             }
             char_array = temp;
             max_values = temp_max;
+            memory_usage += char_array_size * (sizeof(char*) + sizeof(int));
         }
         // Allocate space for the line and copy it in
         char_array[lines_read] = malloc(read + 1);
@@ -133,7 +142,14 @@ long init_arrays(FILE *fp)
         }
 
         snprintf(char_array[lines_read], read + 1, "%s", line);
+        memory_usage += read + 1;
         lines_read++;
+
+        // Need to break out of the loop early so we can stop reading and grab more memory
+        if(memory_usage >= BYTES_LIMIT)
+        {
+            break;
+        }
     }
    
     // Clean up
@@ -165,7 +181,7 @@ int main()
         //if 0 lines are in the batch, we are at the end of the file 
         if(lines_in_batch == 0)
             break;
-        proccess_batch(offset);
+        process_batch(offset);
         offset += lines_in_batch;
    }
 
