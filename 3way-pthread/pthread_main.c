@@ -4,11 +4,11 @@
 #include <pthread.h>
 #include <string.h>
 
-#define NUM_THREADS 4 // Number of threads to use
+#define NUM_THREADS 8 // Number of threads to use
 #define INITIAL_SIZE 1000000 // Initial allocation size for lines
-#define MAX_LINES_IN_BATCH 1000
-#define MEMORY_LIMIT 800 // Memory limit in MB
-#define BYTES_LIMIT (800 * 1024 * 1024) // max number of bytes we want to read in at a time
+#define MAX_LINES_IN_BATCH 2000
+#define MEMORY_LIMIT 60 // Memory limit in MB
+#define BYTES_LIMIT (60 * 1024 * 1024) // max number of bytes we want to read in at a time
 
 // Global arrays and variables
 char **char_array; // Array of strings (lines from the file)
@@ -60,8 +60,6 @@ void print_results(long offset)
         printf("%ld: %d\n", i+offset, max_values[i]);
         free(char_array[i]);
     }
-    free(char_array);
-    free(max_values);
 }
 
 // Process the data in batches
@@ -151,6 +149,26 @@ long init_arrays(FILE *fp)
             break;
         }
     }
+
+    /*
+    while ((read = getline(&line, &len, fp)) != -1) 
+     {
+        if(lines_read >= MAX_LINES_IN_BATCH)
+        {
+            break;
+        }
+        strncpy(char_array[lines_read], line, MAX_LINES_IN_BATCH - 1);
+        char_array[lines_read][MAX_LINES_IN_BATCH - 1] = '\0';
+        memory_usage += strlen(char_array[lines_read]) + 1;
+        lines_read++;
+
+        if (memory_usage >= BYTES_LIMIT) 
+        {
+            break;
+        }
+     }
+    */
+    
    
     // Clean up
     free(line);
@@ -186,6 +204,8 @@ int main()
    }
 
     fclose(fp);
+    free(char_array);
+    free(max_values);
     return 0;
 }
 
