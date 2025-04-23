@@ -7,10 +7,8 @@
 #include <sys/resource.h>
 
 #define NUM_THREADS 8 // Number of threads to use
-#define INITIAL_SIZE 1000000 // Initial allocation size for lines
-#define MAX_LINES_IN_BATCH 2000
-#define MEMORY_LIMIT 60 // Memory limit in MB
-#define BYTES_LIMIT (60 * 1024 * 1024) // max number of bytes we want to read in at a time
+#define LINES_TO_READ 100000 // Initial allocation size for lines (change for each number of lines)
+#define MAX_LINES_IN_BATCH 1000
 
 // Global arrays and variables
 char **char_array; // Array of strings (lines from the file)
@@ -89,7 +87,7 @@ void process_batch(long offset)
 
 // INITIALIZE ARRAYS
 // Reads the file line-by-line into dynamically allocated char_array
-long init_arrays(FILE *fp) 
+long init_arrays(FILE *fp, long lines_remaining) 
 {
     
     char *line = NULL;
@@ -99,7 +97,6 @@ long init_arrays(FILE *fp)
 
     long lines_read = 0;
     //keep track of memory usage to reduce freezing
-    long memory_usage = 0;
 
     // Allocate initial space for char_array
     char_array = malloc(char_array_size * sizeof(char *));
@@ -110,11 +107,7 @@ long init_arrays(FILE *fp)
         perror("Error allocating memory for char_array or max_values");
         exit(1);
     }
-
-    //account for malloc
-    memory_usage += char_array_size * (sizeof(char*) + sizeof(int));
     
-   
     // Read each line from the file
     while ((read = getline(&line, &len, fp)) != -1) 
     {
@@ -131,7 +124,6 @@ long init_arrays(FILE *fp)
             }
             char_array = temp;
             max_values = temp_max;
-            memory_usage += char_array_size * (sizeof(char*) + sizeof(int));
 
             // Initialize memory for new character and integers being read in
             memset(char_array + lines_read, 0, (char_array_size - lines_read) * sizeof(char*));
@@ -149,14 +141,10 @@ long init_arrays(FILE *fp)
         // load pages into RAM
         memset(char_array[lines_read], 0, read + 1);
         snprintf(char_array[lines_read], read + 1, "%s", line);
-        memory_usage += read + 1;
         lines_read++;
 
-        // Need to break out of the loop early so we can stop reading and grab more memory
-        if(memory_usage >= BYTES_LIMIT)
-        {
+        if(lines_read >= lines_remaining)
             break;
-        }
     }
    
     // Clean up
@@ -193,24 +181,30 @@ int main(int argc, char *args[])
         exit(1);
     }
     
-   long offset = 0;
+    // number of lines read so far
+   long total_lines = 0;
 
    //while not end of file, process the wiki dump
-   while(1)
+   while(total_lines < LINES_TO_READ)
    {
-        lines_in_batch = init_arrays(fp);
+        long lines_remaining = LINES_TO_READ - total_lines;
+        long batch_size = lines_remaining < MAX_LINES_IN_BATCH ? lines_remaining : MAX_LINES_IN_BATCH;
+        lines_in_batch = init_arrays(fp, batch_size);
 
         //if 0 lines are in the batch, we are at the end of the file 
         if(lines_in_batch == 0)
             break;
-        process_batch(offset);
-        offset += lines_in_batch;
+        process_batch(total_lines);
+
+        //update the number of total lines
+        total_lines += lines_in_batch;
+
+        free(char_array);
+        free(max_values);
    }
 
     // Close and Free Memory
     fclose(fp);
-    free(char_array);
-    free(max_values);
 
     // Get the end time and CPU Usage
     clock_gettime(CLOCK_MONOTONIC, &end);
