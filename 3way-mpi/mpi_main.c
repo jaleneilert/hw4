@@ -6,8 +6,8 @@
 #include <time.h>
 #include <sys/resource.h>
 
-#define NUM_THREADS 8        // Number of threads to use
-#define LINES_TO_READ 100000 // Initial allocation size for lines (change for each number of lines)
+#define NUM_THREADS 8      // Number of threads to use
+#define LINES_TO_READ 1000 // Initial allocation size for lines (change for each number of lines)
 #define MAX_LINES_IN_BATCH 1000
 
 // Declaration of print_results
@@ -19,9 +19,9 @@ int *max_values;      // Array to store max ASCII values per line
 long total_lines = 0; // Total number of lines read from the file
 long lines_in_batch;
 
-// THREAD WORKER FUNCTION
-// Each thread executes this function. It processes a chunk of the lines
-// and computes the maximum ASCII value per line.
+// PROCESS BATCH MPI
+// This function processes a batch of lines and finds the max ASCII value in each line
+// It uses MPI to gather results from all processes
 void process_batch_mpi(long offset, int rank, int size)
 {
     long lines_per_process = lines_in_batch / size;
