@@ -1,3 +1,8 @@
+(to run when executable is there skip to step 5)
+
+HOW TO REBUILD:
+CHANGE VARIABLE IN MAIN "LINES_TO_READ": 
+
 (go to folder 3way-openmp and change lines to read)
 1. Make executable:
     make

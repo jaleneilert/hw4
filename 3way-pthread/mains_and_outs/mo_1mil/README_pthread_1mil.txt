@@ -1,3 +1,8 @@
+(to run when executable is there skip to step 5)
+
+HOW TO REBUILD:
+CHANGE VARIABLE IN MAIN "LINES_TO_READ": 
+
 1. (in folder 3way-pthread) Make executable:
     make
 

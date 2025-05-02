@@ -2,28 +2,26 @@
 
 HOW TO REBUILD:
 CHANGE VARIABLE IN MAIN "LINES_TO_READ": 
-
 1. Make executable:
     make
 
 2. Move executable to different folder
-    mv openmp-exc /homes/jjeilert/proj4/hw4/3way-openmp/mains_and_outs/mo_100k/openmp-100k
+    mv openmp-exc /homes/jjeilert/proj4/hw4/3way-mpi/mains_and_outs/mo_1k/openmp-1k
 
 3. Navigate to folder with the shell scripts
     cd mains_and_outs/
 
 4. continue
-    cd mo_100k/
+    cd mo_1k/
 
 5. check script:
-    chmod +x openmp_100k_batch.sh
+    chmod +x mpi_1k_batch.sh
 
 6. check other script:
-    chmod +x cores_100k_openmp.sh
+    chmod +x cores_1k_mpi.sh
 
 7. submit jobs:
-    ./cores_100k_openmp.sh
+    ./cores_1k_mpi.sh
 
 use kstat --me to check if jobs submitted
 should output txt file and time file
-
