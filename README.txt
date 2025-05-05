@@ -7,6 +7,9 @@ then follow the seperate README files to run on beocat
 
 Each Main and Out folder has two shell files one shell will run the executable for all core size (1, 2, 4, 8, 16) (starts with cores in name)
 
+MUST LOAD MODULE:
+module load CMake/3.23.1-GCCcore-11.3.0 foss/2022a OpenMPI/4.1.4-GCC-11.3.0 CUDA/11.7.0
+
 NOTE:
 When running the executable file LOCALLY the main takes in two arguments
 You must define a text file in which you would like to have the times outputed to

@@ -14,6 +14,7 @@ CHANGE VARIABLE IN MAIN "LINES_TO_READ":
 4. continue
     cd mo_10k/
 
+//CHANGE "jjeilert/proj4" to own directory in cores shell script
 5. check script:
     chmod +x openmp_10k_batch.sh
 

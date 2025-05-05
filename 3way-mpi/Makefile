@@ -1,5 +1,5 @@
 all:
-	mpicc -o mpi_main mpi_main.c 
+	mpicc -o mpi-exc mpi_main.c 
 
 clean:
-	${RM} mpi_main
+	${RM} mpi-exc

@@ -7,7 +7,7 @@
 #include <sys/resource.h>
 
 #define NUM_THREADS 8      // Number of threads to use
-#define LINES_TO_READ 1000 // Initial allocation size for lines (change for each number of lines)
+#define LINES_TO_READ 1000000 // Initial allocation size for lines (change for each number of lines)
 #define MAX_LINES_IN_BATCH 1000
 
 // Declaration of print_results

@@ -1,12 +1,10 @@
-(to run when executable is there skip to step 5)
-
 HOW TO REBUILD:
 CHANGE VARIABLE IN MAIN "LINES_TO_READ": 
 1. Make executable:
     make
 
 2. Move executable to different folder
-    mv openmp-exc /homes/jjeilert/proj4/hw4/3way-mpi/mains_and_outs/mo_1k/openmp-1k
+    mv mpi-exc /homes/jjeilert/proj4/hw4/3way-mpi/mains_and_outs/mo_1k/mpi-1k
 
 3. Navigate to folder with the shell scripts
     cd mains_and_outs/
@@ -14,6 +12,7 @@ CHANGE VARIABLE IN MAIN "LINES_TO_READ":
 4. continue
     cd mo_1k/
 
+//CHANGE "jjeilert/proj4" to own directory in cores shell script
 5. check script:
     chmod +x mpi_1k_batch.sh
 
